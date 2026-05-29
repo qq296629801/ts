@@ -6,7 +6,7 @@
 
 | 前缀 | 服务 | 说明 |
 |------|------|------|
-| `/api/v1/ai/*` | `gateway-service` (WebFlux) | 对话 SSE、生图；鉴权 + 配额 + Spring AI |
+| `/api/v1/ai/chat`、`/api/v1/ai/image/*` | `gateway-service` (WebFlux) | 对话 SSE（Spring AI）；生图（`RelayImageClient` + 配额 + MinIO） |
 | `/api/v1/*`（除 ai） | `platform-api` (Spring MVC) | 认证、用户、模版、支付、管理 |
 | `/internal/*` | `platform-api` | 仅内网；配额 reserve/commit/rollback |
 
@@ -38,4 +38,4 @@
 ## 契约测试
 
 - `platform-api`：`@WebMvcTest` + OpenAPI 示例请求校验 JSON Schema
-- `gateway-service`：`@WebFluxTest` + WireMock OpenAI + WireMock platform internal quota
+- `gateway-service`：`@WebFluxTest` + Mock `ImageGenerateService` / `RelayImageClientTest`（MockWebServer）

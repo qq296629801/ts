@@ -31,7 +31,7 @@ class RelayImageClientRelayIT {
         String model = System.getenv().getOrDefault("IMAGE_MODEL", "gpt-image-2");
         String quality = System.getenv().getOrDefault("IMAGE_QUALITY", "medium");
 
-        RelayImageClient client = new RelayImageClient(
+        RelayImageClient client = RelayImageClient.createForTest(
                 new ObjectMapper(),
                 HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build(),
                 apiUrl,

@@ -28,7 +28,7 @@
 
 | 原则 | 状态 | 说明 |
 |------|------|------|
-| I. Spring AI 优先 | ✅ | 网关使用 ImageModel/ChatModel；模型名配置化，默认 `gpt-image-2` |
+| I. Spring AI 优先 | ✅ | 对话 ChatModel；生图 `RelayImageClient` 调 OpenAI 兼容中继（见 research §2 例外说明） |
 | II. WebFlux 透传网关 | ✅ | AI 路由仅在 `gateway-service`；JPA/支付/审核在 `platform-api` |
 | III. 规格优先增量交付 | ✅ | spec 含 P1–P3 用户故事与澄清；M1 可独立验收 P1 |
 | IV. 契约与集成验证 | ✅ | `contracts/openapi.yaml` + quickstart 冒烟/契约测试清单 |

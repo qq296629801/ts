@@ -15,7 +15,10 @@
 ```bash
 cd deploy
 cp .env.example .env
-# 编辑 .env，设置 OPENAI_API_KEY=sk-...
+# 编辑 .env：
+#   OPENAI_API_KEY=sk-...        # 中继 Bearer
+#   IMAGE_API_URL=https://.../v1/images/generations
+#   IMAGE_QUALITY=medium         # 推荐 medium，high 易触发中继 ~60s 断连
 
 docker compose -f docker-compose.dev.yml up -d --build
 ```
@@ -41,6 +44,15 @@ docker compose -f deploy/docker-compose.dev.yml logs -f platform-api
 ```bash
 PLATFORM_URL=http://localhost GATEWAY_URL=http://localhost ./tests/e2e/smoke-p1.sh
 ```
+
+生图中继 + 网关（需有效 Key，可能因中继不稳定失败）：
+
+```bash
+chmod +x tests/e2e/smoke-relay-image.sh
+./tests/e2e/smoke-relay-image.sh
+```
+
+**Nginx 路由**：`http://localhost/api/v1/ai/image/generate` → gateway；`sessions`/`messages` 等 → platform-api。若 gateway 重建后浏览器 502，执行 `docker compose -f deploy/docker-compose.dev.yml restart nginx`。
 
 更多说明见 [deploy/README.md](../../deploy/README.md)。
 
@@ -96,6 +108,9 @@ chmod +x tests/e2e/smoke-p1.sh
 
 ```bash
 cd backend && mvn test
+# 可选：真实中继（不纳入 CI）
+export RELAY_IT=1 IMAGE_API_URL=... OPENAI_API_KEY=...
+mvn -pl gateway-service test -Dtest=RelayImageClientRelayIT
 ```
 
 ## 里程碑对照

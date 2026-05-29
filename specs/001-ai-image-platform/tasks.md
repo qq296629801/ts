@@ -93,7 +93,7 @@
 
 ### 用户故事 3 的实现
 
-- [x] T039 [US3] 生图编排 `backend/gateway-service/src/main/java/com/ts/gateway/service/ImageGenerateService.java`（reserve→ImageModel→Oss→commit/rollback）
+- [x] T039 [US3] 生图编排 `ImageGenerateService`（reserve→`RelayImageClient`→Oss→commit/rollback）
 - [x] T040 [US3] 控制器 `backend/gateway-service/src/main/java/com/ts/gateway/api/ImageGatewayController.java`（`POST /api/v1/ai/image/generate`）
 - [x] T041 [US3] 对话 SSE `backend/gateway-service/src/main/java/com/ts/gateway/api/ChatGatewayController.java`（`POST /api/v1/ai/chat`，Flux SSE）
 - [x] T042 [US3] 平台写图 API `backend/platform-api/src/main/java/com/ts/platform/image/InternalImageController.java`（供网关回调：保存 t_image、quota commit）
@@ -231,6 +231,10 @@
 **目的**：联调、文档、安全与性能验证
 
 - [x] T087 [P] 完善 `deploy/docker-compose.dev.yml` 与 `quickstart.md` 一致性
+- [x] T088 [P] [US3] `RelayImageClient` + JDK HttpClient 中继生图（`b64_json`/`url`、重试、错误映射）
+- [x] T089 [P] [US3] `RelayImageClientTest`（MockWebServer）与可选 `RelayImageClientRelayIT`（`RELAY_IT=1`）
+- [x] T090 [P] Nginx 拆分 `/api/v1/ai/chat|image` → gateway，其余 `/api/` → platform-api；生图 `proxy_read_timeout` 360s
+- [x] T091 [P] 前端生图 axios 超时 360s；`tests/e2e/smoke-relay-image.sh` 中继+网关冒烟
 - [x] T088 端到端冒烟脚本 `tests/e2e/smoke-p1.sh`（覆盖 quickstart §6）
 - [x] T089 [P] 安全审查：确认响应/日志无 `OPENAI_API_KEY`、完整 JWT、用户 prompt 批量明文
 - [x] T090 [P] 网关阻塞审查：WebFlux 路径无 `block()`、无界 buffer（代码扫描或 ArchUnit）

@@ -24,7 +24,7 @@ class RelayImageClientTest {
         server = new MockWebServer();
         server.start();
         String baseUrl = server.url("/v1/images/generations").toString();
-        client = new RelayImageClient(
+        client = RelayImageClient.createForTest(
                 new ObjectMapper(),
                 HttpClient.newHttpClient(),
                 baseUrl,

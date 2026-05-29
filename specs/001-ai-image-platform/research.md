@@ -12,14 +12,17 @@
 - 单体 MVC：实现简单但违反 WebFlux 透传与非阻塞网关约束。
 - 网关承担全部 API：网关内引入 JPA/支付，违反「最小网关」原则。
 
-## 2. 上游模型集成（Spring AI）
+## 2. 上游模型集成（Spring AI + 中继生图）
 
-**Decision**：图像生成使用 Spring AI `ImageModel`（默认 `gpt-image-2`）；文字对话使用 Spring AI `ChatModel` + 流式 `Flux<ChatResponse>` 输出 SSE。
+**Decision**：
+- **对话**：Spring AI `ChatModel` + SSE（`spring.ai.openai.*`）。
+- **生图**：`RelayImageClient`（JDK `HttpClient`、HTTP/1.1）POST 至可配置 `IMAGE_API_URL`，Bearer `OPENAI_API_KEY`；解析 `data[].b64_json` 或 `url` → `OssClient` → platform internal commit。默认 `IMAGE_MODEL=gpt-image-2`、`IMAGE_QUALITY=medium`（`high` 易触发中继 ~60s 空闲断连）。
 
-**Rationale**：符合宪章 Spring AI 优先；配置通过 `spring.ai.openai.*` 外部化 API Key 与模型名。
+**Rationale**：OpenAI 兼容中继常返回超大 `b64_json`；Reactor Netty WebClient 易出现 `PrematureCloseException` / `EOF while reading`；阻塞 IO 放在 `Schedulers.boundedElastic()`，对外仍暴露 `Mono`。IO 错误指数退避重试最多 3 次；业务错误（HTTP 4xx、JSON `error`）不重试。
 
 **Alternatives considered**：
-- 原始 WebClient 直调 OpenAI：仅当流式字段映射不足时作为 **复杂度例外** 记录在 `plan.md`，并限定在 `ReactiveOpenAiClient` 适配层。
+- Spring AI `ImageModel`：与中继 `b64_json` 及超时行为不匹配，已弃用于 v1 主路径。
+- Reactor Netty WebClient：长响应不稳定，已替换为 JDK HttpClient。
 
 ## 3. 次数预扣与单路并发
 
@@ -71,8 +74,10 @@
 ## 9. 测试策略
 
 **Decision**：
-- 契约：`contracts/openapi.yaml` + Spring MockMvc/WebTestClient 契约测试。
-- 网关集成：WireMock 上游 OpenAI；配额 reserve/rollback 集成测试。
+- 契约：`contracts/openapi.yaml` + WebTestClient 契约测试。
+- 网关单元：`RelayImageClientTest`（MockWebServer，覆盖 b64/url/重试/HTTP200+error）。
+- 网关集成：`ImageGenerateIntegrationTest`（Mock `RelayImageClient` + 配额回滚）。
+- 可选真实中继：`RELAY_IT=1` 运行 `RelayImageClientRelayIT`；脚本 `tests/e2e/smoke-relay-image.sh`。
 - 支付：微信沙箱回调签名 fixture。
 
-**Rationale**：宪章 IV 要求公开路由具备契约/集成验证。
+**Rationale**：宪章 IV 要求公开路由具备契约/集成验证；真实中继不稳定，不纳入 CI 必跑项。

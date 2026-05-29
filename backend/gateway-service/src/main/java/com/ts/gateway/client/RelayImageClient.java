@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -35,6 +36,7 @@ public class RelayImageClient {
     private final String model;
     private final String quality;
 
+    @Autowired
     public RelayImageClient(
             ObjectMapper objectMapper,
             @Value("${app.image.api-url}") String apiUrl,
@@ -44,8 +46,8 @@ public class RelayImageClient {
         this(objectMapper, defaultHttpClient(), apiUrl, apiKey, model, quality);
     }
 
-    /** 供单元测试注入 MockWebServer 对应的 HttpClient */
-    RelayImageClient(
+    /** 供单元测试注入 MockWebServer 对应的 HttpClient（勿改为 public，避免 Spring 误选） */
+    private RelayImageClient(
             ObjectMapper objectMapper,
             HttpClient httpClient,
             String apiUrl,
@@ -65,6 +67,16 @@ public class RelayImageClient {
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(30))
                 .build();
+    }
+
+    static RelayImageClient createForTest(
+            ObjectMapper objectMapper,
+            HttpClient httpClient,
+            String apiUrl,
+            String apiKey,
+            String model,
+            String quality) {
+        return new RelayImageClient(objectMapper, httpClient, apiUrl, apiKey, model, quality);
     }
 
     public Mono<GeneratedImage> generate(String prompt, String size) {

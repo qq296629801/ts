@@ -40,7 +40,10 @@ docker compose -f docker-compose.dev.yml up -d --build platform-api
 
 - 首次 `--build` 会下载 Maven/npm 依赖，耗时较长。
 - 开发管理员（dev profile）：手机 `19900000000` / 密码 `Admin1234`（platform-api 启动后自动创建）。
-- 生图、对话依赖有效的 `OPENAI_API_KEY`。
+- 生图、对话依赖有效的 `OPENAI_API_KEY`（Bearer）及 `IMAGE_API_URL`（OpenAI 兼容 `/v1/images/generations`）。
+- 推荐 `IMAGE_QUALITY=medium`；`high` 可能导致中继约 60s 断连（`EOF` / `upstream did not return any image output`）。
+- 生图冒烟：`./tests/e2e/smoke-relay-image.sh`（栈已 `up` 后执行）。
+- **502 排查**：先看 `gateway-service` 是否 `Started GatewayApplication`；若 `NoSuchMethodException: RelayImageClient` 需重建 gateway；若日志为中继错误则属上游，次数会自动回滚。
 
 ## 拉镜像超时（`auth.docker.io` / `i/o timeout`）
 

@@ -18,6 +18,12 @@
 - Q: 同一用户可同时发起几路生图？ → A: 单路并发——每用户同时仅允许 1 个进行中的生图；存在未完结预扣时拒绝新请求并提示。
 - Q: 待支付订单多久自动关闭？ → A: 15 分钟——超时未支付订单自动变为已取消，Native 二维码失效，不可再用于支付。
 
+### Session 2026-05-29
+
+- Q: 生图上游如何对接 OpenAI 兼容中继？ → A: 网关通过 `RelayImageClient` 调用可配置 `IMAGE_API_URL`（如 `/v1/images/generations`），解析 `data[].b64_json` 或 `url` 后写入 MinIO/OSS；对话仍走 Spring AI `ChatModel`。
+- Q: 中继不稳定（60s 断连、`upstream did not return any image output`）如何处理？ → A: 默认 `IMAGE_QUALITY=medium`；JDK HttpClient + HTTP/1.1 + 可重试 IO 错误；失败回滚配额并向用户返回可读 502；前端生图请求超时 360s，避免 60s axios 误断。
+- Q: Nginx 与网关路由如何划分？ → A: 仅 `/api/v1/ai/chat`、`/api/v1/ai/image/` 转发 `gateway-service`；其余 `/api/` 转发 `platform-api`（含 `sessions`、`messages`）。
+
 ## 用户场景与测试 *(必填)*
 
 ### 用户故事 1 - 注册登录与次数账户（优先级：P1）
@@ -275,7 +281,7 @@
 
 ## 宪章对齐 *(必填)*
 
-- **Spring AI 优先**：图像生成与对话上游集成默认经 Spring AI 抽象，默认图像模型为 `gpt-image-2`；模型名与端点通过配置管理。若存在 Spring AI 未覆盖的能力（如特定流式协议），须在计划阶段记录例外与移除条件。
+- **Spring AI 优先**：对话经 Spring AI `ChatModel`；图像生成默认模型 `gpt-image-2`，经 **OpenAI 兼容 HTTP 中继**（`RelayImageClient` + `IMAGE_API_URL`）调用，因中继响应含大体积 `b64_json` 且需定制重试/超时。Spring AI `ImageModel` 仅作备选；模型名、画质、端点通过 `deploy/.env` 配置。
 - **WebFlux 透传网关**：生图与对话入口在网关层保持响应式、非阻塞转发；网关负责鉴权、次数扣减、错误映射与日志，不承载模版审核、支付清结算等完整领域工作流（可由同仓其他模块实现，但职责边界须在计划中划分）。
 - **边界验证**：须为受保护路由定义契约测试或集成测试，覆盖：未认证、次数不足、上游超时/限流、无效参数、支付回调验签失败、重复回调。
 - **密钥与可观测性**：上游 API 密钥仅存服务端；日志脱敏（无完整 token、无用户敏感提示词明文批量落盘）；每次生图请求具备关联 ID 便于排查。
