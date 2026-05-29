@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: platform-api
+  profiles:
+    active: dev
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production-use-long-random-string}
+    access-expiration-days: 7
+    remember-me-expiration-days: 30
+  internal-api-key: ${INTERNAL_API_KEY:dev-internal-key}
+  register-gift-quota: 3
+  invite:
+    invitee-bonus: 3
+    inviter-register-bonus: 5
+    inviter-pay-bonus: 10

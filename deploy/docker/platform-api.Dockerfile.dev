@@ -1,0 +1,17 @@
+# 国内网络默认走 DaoCloud 镜像；海外可 build-arg: MAVEN_IMAGE=maven:3.9-eclipse-temurin-17
+ARG MAVEN_IMAGE=docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
+
+FROM ${MAVEN_IMAGE} AS deps
+WORKDIR /workspace
+COPY backend/pom.xml backend/pom.xml
+COPY backend/platform-api/pom.xml backend/platform-api/pom.xml
+COPY backend/gateway-service/pom.xml backend/gateway-service/pom.xml
+RUN mvn -f backend/pom.xml -pl platform-api -am dependency:go-offline -B -q || true
+
+FROM ${MAVEN_IMAGE}
+WORKDIR /workspace
+COPY --from=deps /root/.m2 /root/.m2
+COPY backend/ backend/
+WORKDIR /workspace/backend/platform-api
+EXPOSE 8080
+CMD ["mvn", "-q", "spring-boot:run", "-Dspring-boot.run.profiles=dev,docker"]

@@ -1,0 +1,8 @@
+# Docker Compose 网络内服务名（与 dev profile 叠加：dev,docker）
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/ai_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+  data:
+    redis:
+      host: redis
+      port: 6379

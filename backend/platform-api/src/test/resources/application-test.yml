@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:ai_platform;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+app:
+  jwt:
+    secret: test-secret-key-at-least-32-bytes-long!!
+  internal-api-key: test-internal
+  register-gift-quota: 3
+  wechat:
+    mock-enabled: true
+  template:
+    audit-auto-approve-dev: true

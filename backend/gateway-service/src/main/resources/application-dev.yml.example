@@ -1,0 +1,9 @@
+spring:
+  ai:
+    openai:
+      api-key: sk-your-key
+
+app:
+  jwt:
+    secret: your-jwt-secret
+  internal-api-key: your-internal-key

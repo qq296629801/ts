@@ -1,0 +1,16 @@
+ARG MAVEN_IMAGE=docker.m.daocloud.io/library/maven:3.9-eclipse-temurin-17
+
+FROM ${MAVEN_IMAGE} AS deps
+WORKDIR /workspace
+COPY backend/pom.xml backend/pom.xml
+COPY backend/platform-api/pom.xml backend/platform-api/pom.xml
+COPY backend/gateway-service/pom.xml backend/gateway-service/pom.xml
+RUN mvn -f backend/pom.xml -pl gateway-service -am dependency:go-offline -B -q || true
+
+FROM ${MAVEN_IMAGE}
+WORKDIR /workspace
+COPY --from=deps /root/.m2 /root/.m2
+COPY backend/ backend/
+WORKDIR /workspace/backend/gateway-service
+EXPOSE 8081
+CMD ["mvn", "-q", "spring-boot:run", "-Dspring-boot.run.profiles=dev,docker"]

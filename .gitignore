@@ -1,0 +1,38 @@
+# Java
+target/
+*.class
+*.jar
+*.war
+.gradle/
+build/
+
+# Node
+node_modules/
+dist/
+frontend/web/dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Env & secrets
+.env
+.env.*
+*.local.yml
+application-local.yml
+**/application-dev.local.yml
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Test
+coverage/

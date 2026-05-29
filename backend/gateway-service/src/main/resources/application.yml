@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: gateway-service
+  profiles:
+    active: dev
+
+server:
+  port: 8081
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production-use-long-random-string}
+  platform-api:
+    base-url: http://localhost:8080
+  internal-api-key: ${INTERNAL_API_KEY:dev-internal-key}

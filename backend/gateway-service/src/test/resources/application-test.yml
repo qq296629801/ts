@@ -1,0 +1,13 @@
+spring:
+  main:
+    web-application-type: reactive
+  ai:
+    openai:
+      api-key: test-dummy-key-for-unit-tests
+
+app:
+  jwt:
+    secret: test-secret-key-at-least-32-bytes-long!!
+  platform-api:
+    base-url: http://localhost:8080
+  internal-api-key: test-internal

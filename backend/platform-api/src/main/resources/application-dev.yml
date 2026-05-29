@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: ai
+    password: ai123
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  flyway:
+    enabled: true
+  mail:
+    host: localhost
+    port: 1025
+
+app:
+  wechat:
+    mock-enabled: true
+  template:
+    audit-auto-approve-dev: true
+
+logging:
+  level:
+    com.ts.platform: DEBUG
