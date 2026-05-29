@@ -20,6 +20,10 @@ docker compose -f docker-compose.dev.yml up -d --build
 | AI 网关 | http://localhost:8081 |
 | MinIO 控制台 | http://localhost:9001（minioadmin / minioadmin） |
 
+## 问题修复清单
+
+遇到 502、生图失败、404、npm 构建失败等，见 **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**（按现象查表处理）。
+
 ## 常用命令
 
 ```bash
