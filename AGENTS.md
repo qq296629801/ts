@@ -1,5 +1,7 @@
 <!-- SPECKIT START -->
-**当前功能**：`001-ai-image-platform` — [plan.md](specs/001-ai-image-platform/plan.md) | [tasks.md](specs/001-ai-image-platform/tasks.md) | [quickstart.md](specs/001-ai-image-platform/quickstart.md)
+**当前规格（唯一真理源）**：`001-ai-image-platform` — [spec.md](specs/001-ai-image-platform/spec.md) | [plan.md](specs/001-ai-image-platform/plan.md) | [tasks.md](specs/001-ai-image-platform/tasks.md) | [quickstart.md](specs/001-ai-image-platform/quickstart.md) | [contracts/openapi.yaml](specs/001-ai-image-platform/contracts/openapi.yaml)
+
+**UI 表现层**： [design-ui-tokens.md](specs/001-ai-image-platform/design-ui-tokens.md)
 
 **代码路径**：
 | 模块 | 路径 | 端口 |

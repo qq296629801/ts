@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: AI 图像生成平台 API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     v1 公开 REST 契约。AI 路由由 gateway-service 实现，其余由 platform-api 实现。
+    v1.1（2026-06-02）：合并原 004 增量 — 公开展示图库、双渠道支付、管理账单。
 servers:
   - url: https://api.example.com
     description: 生产
@@ -77,12 +78,73 @@ components:
             properties:
               role: { type: string, enum: [user, assistant, system] }
               content: { type: string }
+    CreateOrderRequest:
+      type: object
+      required: [packageId]
+      properties:
+        packageId: { type: integer }
+        payChannel:
+          type: string
+          enum: [WECHAT, ALIPAY]
+          default: WECHAT
+          description: 支付渠道
     CreateOrderResponse:
       type: object
       properties:
         orderNo: { type: string }
-        codeUrl: { type: string, description: 微信 Native 二维码链接 }
+        payType: { type: string, enum: [WECHAT, ALIPAY] }
+        codeUrl: { type: string, description: 微信 Native 或支付宝扫码链接 }
         expiresAt: { type: string, format: date-time }
+        amount: { type: number }
+        quotaGranted: { type: integer }
+    PayOrderView:
+      type: object
+      properties:
+        orderNo: { type: string }
+        payType: { type: string, enum: [WECHAT, ALIPAY] }
+        status: { type: string, enum: [PENDING, PAID, CANCELLED, REFUNDED] }
+        amount: { type: number }
+        quotaGranted: { type: integer }
+        codeUrl: { type: string }
+        expiresAt: { type: string, format: date-time }
+        paidAt: { type: string, format: date-time }
+    PublicGalleryItem:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [TEMPLATE, FEATURED] }
+        templateId: { type: integer }
+        title: { type: string }
+        imageUrl: { type: string, format: uri }
+        useCount: { type: integer }
+    AdminBillingOrderView:
+      type: object
+      properties:
+        orderNo: { type: string }
+        userId: { type: integer }
+        packageId: { type: integer }
+        amount: { type: number }
+        quotaGranted: { type: integer }
+        payType: { type: string, enum: [WECHAT, ALIPAY] }
+        status: { type: string }
+        channelTradeNo: { type: string }
+        paidAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    BillingSummary:
+      type: object
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        paidCount: { type: integer }
+        totalAmount: { type: number }
+        byPayType:
+          type: array
+          items:
+            type: object
+            properties:
+              payType: { type: string, enum: [WECHAT, ALIPAY] }
+              count: { type: integer }
+              amount: { type: number }
 
 paths:
   /api/v1/auth/send-sms:
@@ -278,19 +340,47 @@ paths:
       responses:
         '200': { description: OK }
 
+  /api/v1/gallery/public:
+    get:
+      tags: [Gallery]
+      summary: 公开展示图库（游客可访问）
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1, minimum: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 48 }
+      responses:
+        '200':
+          description: 分页展示项（上架模版封面与可选精选图）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/ApiResponse' }
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/PublicGalleryItem' }
+                          total: { type: integer }
+                          page: { type: integer }
+                          size: { type: integer }
+
   /api/v1/pay/create-order:
     post:
       tags: [Pay]
-      summary: 创建 Native 支付订单
+      summary: 创建充值订单（微信 Native 或支付宝扫码）
       security: [{ bearerAuth: [] }]
       requestBody:
         content:
           application/json:
-            schema:
-              type: object
-              required: [packageId]
-              properties:
-                packageId: { type: integer }
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
       responses:
         '200':
           description: OK
@@ -302,13 +392,73 @@ paths:
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/CreateOrderResponse' }
+        '400': { description: 套餐无效或支付渠道不支持 }
 
   /api/v1/pay/wx-notify:
     post:
       tags: [Pay]
       summary: 微信支付回调（无 JWT）
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notifyId: { type: string }
+                orderNo: { type: string }
+                transactionId: { type: string }
       responses:
         '200': { description: 微信要求的成功应答 }
+
+  /api/v1/pay/alipay-notify:
+    post:
+      tags: [Pay]
+      summary: 支付宝异步通知（无 JWT）
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notifyId: { type: string }
+                orderNo: { type: string }
+                transactionId: { type: string }
+      responses:
+        '200': { description: success }
+
+  /api/v1/pay/orders:
+    get:
+      tags: [Pay]
+      summary: 当前用户充值订单列表
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/ApiResponse' }
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/PayOrderView' }
+                          total: { type: integer }
+                          page: { type: integer }
+                          size: { type: integer }
 
   /api/v1/pay/order/{orderNo}:
     get:
@@ -352,6 +502,79 @@ paths:
                 reason: { type: string }
       responses:
         '200': { description: OK }
+
+  /api/v1/admin/billing/orders:
+    get:
+      tags: [Admin, Billing]
+      summary: 管理员 — 充值订单查询（可按用户筛选）
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, PAID, CANCELLED, REFUNDED] }
+        - name: payType
+          in: query
+          schema: { type: string, enum: [WECHAT, ALIPAY] }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/ApiResponse' }
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/AdminBillingOrderView' }
+                          total: { type: integer }
+                          page: { type: integer }
+                          size: { type: integer }
+        '403': { description: 非管理员 }
+
+  /api/v1/admin/billing/summary:
+    get:
+      tags: [Admin, Billing]
+      summary: 管理员 — 系统账单汇总
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: 成功笔数、总金额、按 payType 分布
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/ApiResponse' }
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BillingSummary' }
+        '403': { description: 非管理员 }
 
   /internal/quota/reserve:
     post:

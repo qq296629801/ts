@@ -24,9 +24,20 @@ public class PayController {
 
     @PostMapping("/create-order")
     public ApiResponse<Map<String, Object>> createOrder(
-            Authentication auth, @RequestBody Map<String, Long> body) {
+            Authentication auth, @RequestBody Map<String, Object> body) {
         Long userId = (Long) auth.getPrincipal();
-        return ApiResponse.ok(payService.createOrder(userId, body.get("packageId")));
+        Long packageId = Long.valueOf(body.get("packageId").toString());
+        String payChannel = body.containsKey("payChannel") ? String.valueOf(body.get("payChannel")) : "WECHAT";
+        return ApiResponse.ok(payService.createOrder(userId, packageId, payChannel));
+    }
+
+    @GetMapping("/orders")
+    public ApiResponse<Map<String, Object>> orders(
+            Authentication auth,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Long userId = (Long) auth.getPrincipal();
+        return ApiResponse.ok(payService.listUserOrders(userId, page, size));
     }
 
     @GetMapping("/order/{orderNo}")
@@ -41,6 +52,15 @@ public class PayController {
                 body.getOrDefault("notifyId", "wx-" + body.get("orderNo")),
                 body.get("orderNo"),
                 body.getOrDefault("transactionId", "WX_MOCK"));
+        return Map.of("code", "SUCCESS", "message", "成功");
+    }
+
+    @PostMapping("/alipay-notify")
+    public Map<String, String> alipayNotify(@RequestBody Map<String, String> body) {
+        payService.handleAlipayNotify(
+                body.getOrDefault("notifyId", "ali-" + body.get("orderNo")),
+                body.get("orderNo"),
+                body.getOrDefault("transactionId", "ALI_MOCK"));
         return Map.of("code", "SUCCESS", "message", "成功");
     }
 

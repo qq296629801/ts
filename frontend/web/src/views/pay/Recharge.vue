@@ -13,8 +13,18 @@
       </el-row>
     </el-card>
 
+    <el-card v-if="selectedPkg && !order" class="pay-box">
+      <h4>选择支付方式</h4>
+      <el-radio-group v-model="payChannel">
+        <el-radio label="WECHAT">微信支付</el-radio>
+        <el-radio label="ALIPAY">支付宝</el-radio>
+      </el-radio-group>
+      <el-button type="primary" style="margin-left:16px" @click="createOrder">生成支付码</el-button>
+    </el-card>
+
     <el-card v-if="order" class="pay-box">
       <h4>订单 {{ order.orderNo }}</h4>
+      <p>渠道：{{ order.payType === 'ALIPAY' ? '支付宝' : '微信' }}</p>
       <p>状态：{{ statusText(order.status) }}</p>
       <p v-if="order.status === 'PENDING'">请在 15 分钟内完成支付</p>
       <p class="mock-url" v-if="order.status === 'PENDING'">{{ order.codeUrl }}</p>
@@ -31,6 +41,8 @@ export default {
   data() {
     return {
       packages: [],
+      selectedPkg: null,
+      payChannel: 'WECHAT',
       order: null,
       pollTimer: null
     }
@@ -42,8 +54,17 @@ export default {
     if (this.pollTimer) clearInterval(this.pollTimer)
   },
   methods: {
-    async selectPackage(pkg) {
-      this.order = await http.post('/api/v1/pay/create-order', { packageId: pkg.id })
+    selectPackage(pkg) {
+      this.selectedPkg = pkg
+      this.order = null
+      if (this.pollTimer) clearInterval(this.pollTimer)
+    },
+    async createOrder() {
+      if (!this.selectedPkg) return
+      this.order = await http.post('/api/v1/pay/create-order', {
+        packageId: this.selectedPkg.id,
+        payChannel: this.payChannel
+      })
       this.startPoll()
     },
     startPoll() {

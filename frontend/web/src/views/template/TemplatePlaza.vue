@@ -10,7 +10,7 @@
           <el-radio-button label="latest">最新</el-radio-button>
           <el-radio-button label="hot">最热</el-radio-button>
         </el-radio-group>
-        <router-link to="/template/publish"><el-button type="primary">发布模版</el-button></router-link>
+        <router-link v-if="isLoggedIn" to="/template/publish"><el-button type="primary">发布模版</el-button></router-link>
       </div>
       <el-row :gutter="12">
         <el-col :span="6" v-for="t in items" :key="t.id">
@@ -29,9 +29,13 @@
 
 <script>
 import http from '../../api/http'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'TemplatePlaza',
+  computed: {
+    ...mapGetters(['isLoggedIn'])
+  },
   data() {
     return {
       categories: [],
@@ -59,10 +63,18 @@ export default {
       this.items = data.items
     },
     async useTemplate(t) {
+      if (!this.isLoggedIn) {
+        this.$router.push({ path: '/login', query: { redirect: '/templates' } })
+        return
+      }
       const data = await http.post(`/api/v1/templates/${t.id}/use`)
       this.$router.push({ path: '/chat', query: { prompt: data.prompt } })
     },
     async like(t) {
+      if (!this.isLoggedIn) {
+        this.$router.push({ path: '/login', query: { redirect: '/templates' } })
+        return
+      }
       const data = await http.post(`/api/v1/templates/${t.id}/like`)
       t.liked = data.liked
       t.likeCount = data.likeCount

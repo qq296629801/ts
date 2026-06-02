@@ -8,7 +8,9 @@ const routes = [
   { path: '/login', component: () => import('../views/auth/Login.vue') },
   { path: '/register', component: () => import('../views/auth/Register.vue') },
   { path: '/chat', component: () => import('../views/chat/ChatRoom.vue'), meta: { auth: true } },
-  { path: '/gallery', component: () => import('../views/user/ImageGallery.vue'), meta: { auth: true } },
+  { path: '/gallery/public', component: () => import('../views/gallery/PublicGallery.vue') },
+  { path: '/my/gallery', component: () => import('../views/user/ImageGallery.vue'), meta: { auth: true } },
+  { path: '/gallery', redirect: '/my/gallery' },
   { path: '/recharge', component: () => import('../views/pay/Recharge.vue'), meta: { auth: true } },
   { path: '/invite', component: () => import('../views/user/InviteCard.vue'), meta: { auth: true } },
   { path: '/templates', component: () => import('../views/template/TemplatePlaza.vue') },
@@ -22,7 +24,9 @@ const routes = [
       { path: 'audit', component: () => import('../views/admin/TemplateAudit.vue') },
       { path: 'users', component: () => import('../views/admin/UserManage.vue') },
       { path: 'config', component: () => import('../views/admin/SystemConfig.vue') },
-      { path: 'dashboard', component: () => import('../views/admin/AdminDashboard.vue') }
+      { path: 'dashboard', component: () => import('../views/admin/AdminDashboard.vue') },
+      { path: 'billing/orders', component: () => import('../views/admin/BillingOrders.vue') },
+      { path: 'billing/summary', component: () => import('../views/admin/BillingSummary.vue') }
     ]
   },
   { path: '/', redirect: '/chat' }

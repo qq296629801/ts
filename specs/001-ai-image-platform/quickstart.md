@@ -43,6 +43,7 @@ docker compose -f deploy/docker-compose.dev.yml logs -f platform-api
 
 ```bash
 PLATFORM_URL=http://localhost GATEWAY_URL=http://localhost ./tests/e2e/smoke-p1.sh
+./tests/e2e/smoke-rbac-pay.sh
 ```
 
 生图中继 + 网关（需有效 Key，可能因中继不稳定失败）：
@@ -113,6 +114,24 @@ export RELAY_IT=1 IMAGE_API_URL=... OPENAI_API_KEY=...
 mvn -pl gateway-service test -Dtest=RelayImageClientRelayIT
 ```
 
+## 验收走查（RBAC / 公开浏览 / 双支付）
+
+| 场景 | 操作 |
+|------|------|
+| 游客 | 无痕打开 `/templates`、`/gallery/public`；访问 `/chat` 应跳转登录 |
+| 普通用户 | 无「管理」；`/admin` 被拒；充值可选微信/支付宝，dev 可模拟支付 |
+| 管理员 | `19900000000` / `Admin1234` → 管理 → 充值账单、系统汇总 |
+
+```bash
+# 公开图库（无需登录）
+curl -s 'http://localhost/api/v1/gallery/public?page=1&size=10'
+
+# 支付宝下单（需 JWT）
+curl -s -X POST http://localhost/api/v1/pay/create-order \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"packageId":1,"payChannel":"ALIPAY"}'
+```
+
 ## 里程碑对照
 
 | 阶段 | 交付 | 用户故事 |
@@ -120,5 +139,6 @@ mvn -pl gateway-service test -Dtest=RelayImageClientRelayIT
 | M1 | 认证 + 配额 + 网关生图/对话 | P1 US1–3 |
 | M2 | 会话/图库 + 邀请 | P1–P2 US2,4 |
 | M3 | 模版广场 + 审核 | P2 US5,7 |
-| M4 | Native 支付 | P3 US6 |
-| M5 | 管理报表 | P3 US7 |
+| M4 | 微信/支付宝充值 | P3 US6 |
+| M5 | 管理报表 + 账单 | P3 US7–8 |
+| M6 | 毛玻璃顶栏 + 全站背景 | spec §体验增量 |

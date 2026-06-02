@@ -8,7 +8,7 @@ Technologies (see `.specify/memory/constitution.md`):
 - Spring AI (preferred) for upstream image/multimodal integration
 - Default image model: gpt-image-2
 - API keys server-side only; gateway passthrough, no domain logic in proxy layer
-For project structure and commands, read [specs/001-ai-image-platform/plan.md](specs/001-ai-image-platform/plan.md).
+For project structure and commands, read [specs/001-ai-image-platform/plan.md](specs/001-ai-image-platform/plan.md) (active spec). Historical features: [specs/README.md](specs/README.md).
 <!-- SPECKIT END -->
 
 ## 交互规则

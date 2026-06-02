@@ -8,6 +8,16 @@
 
 **组织方式**：按用户故事分组；P1 MVP = US1 + US3 + US2（基础能力完成后）。
 
+**规格**：仅 [spec.md](./spec.md) + [design-ui-tokens.md](./design-ui-tokens.md)。下列增量已合入代码与本仓库，无独立 `002`–`004` 目录。
+
+| 增量 | 交付摘要 | spec 章节 |
+|------|----------|-------------|
+| 平台 MVP | T001–T093：注册/聊天/生图/模版/管理 | 用户故事 1–7 |
+| 顶栏毛玻璃 + 全站背景 | `App.vue`、`app-bg.webp` | §体验增量 / design-ui-tokens |
+| RBAC·公开图库·双支付·账单 | `PublicGallery*`、`AlipayPayService`、`AdminBilling*`、路由与冒烟 | 用户故事 5–8、FR-040–044 |
+
+**后续新需求**：改 spec.md，在本文件从 **T094** 起追加任务。
+
 ## 格式：`[ID] [P?] [Story] 描述`
 
 ---
@@ -314,6 +324,8 @@ T013 JwtTokenProvider | T014 JwtWebFilter | T018 QuotaClient | T019 SpringAiConf
 | M3 内容 | US5+US7 审核 | 模版广场 UGC |
 | M4 变现 | US6 | Native 充值 |
 | M5 运营 | US7 全量 | 报表与配置 |
+| M6 体验 | — | 毛玻璃顶栏 + 全站背景（已交付） |
+| M7 权限与支付 | — | 公开图库、支付宝、管理账单（已交付） |
 
 ---
 
@@ -342,3 +354,5 @@ T013 JwtTokenProvider | T014 JwtWebFilter | T018 QuotaClient | T019 SpringAiConf
 - 所有任务描述已含仓库内路径，实施时包名前缀 `com.ts` 可依团队规范调整，但须同步更新任务路径
 - 支付/短信/审核 SDK 密钥仅环境变量注入
 - 邀请首充奖励（+10）在 US6 T076 挂钩，US4 仅实现注册奖励
+- OpenAPI v1.1.0 含公开图库、双支付、管理账单路径
+- 冒烟：`tests/e2e/smoke-p1.sh`、`tests/e2e/smoke-rbac-pay.sh`

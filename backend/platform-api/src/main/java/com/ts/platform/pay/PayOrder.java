@@ -45,6 +45,9 @@ public class PayOrder {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "channel_trade_no", length = 64)
+    private String channelTradeNo;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -59,14 +62,19 @@ public class PayOrder {
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public Integer getQuotaGranted() { return quotaGranted; }
     public void setQuotaGranted(Integer quotaGranted) { this.quotaGranted = quotaGranted; }
+    public String getPayType() { return payType; }
+    public void setPayType(String payType) { this.payType = payType; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public String getWxTransactionId() { return wxTransactionId; }
     public void setWxTransactionId(String wxTransactionId) { this.wxTransactionId = wxTransactionId; }
+    public String getChannelTradeNo() { return channelTradeNo; }
+    public void setChannelTradeNo(String channelTradeNo) { this.channelTradeNo = channelTradeNo; }
     public String getCodeUrl() { return codeUrl; }
     public void setCodeUrl(String codeUrl) { this.codeUrl = codeUrl; }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
 }

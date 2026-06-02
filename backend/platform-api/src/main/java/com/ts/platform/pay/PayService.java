@@ -6,16 +6,21 @@ import com.ts.platform.quota.QuotaLog;
 import com.ts.platform.quota.QuotaLogRepository;
 import com.ts.platform.user.UserQuota;
 import com.ts.platform.user.UserQuotaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class PayService {
+
+    private static final Set<String> PAY_CHANNELS = Set.of("WECHAT", "ALIPAY");
 
     private final PayPackageRepository packageRepository;
     private final PayOrderRepository orderRepository;
@@ -24,6 +29,7 @@ public class PayService {
     private final QuotaLogRepository quotaLogRepository;
     private final InviteService inviteService;
     private final WechatPayService wechatPayService;
+    private final AlipayPayService alipayPayService;
 
     public PayService(
             PayPackageRepository packageRepository,
@@ -32,7 +38,8 @@ public class PayService {
             UserQuotaRepository quotaRepository,
             QuotaLogRepository quotaLogRepository,
             InviteService inviteService,
-            WechatPayService wechatPayService) {
+            WechatPayService wechatPayService,
+            AlipayPayService alipayPayService) {
         this.packageRepository = packageRepository;
         this.orderRepository = orderRepository;
         this.notifyLogRepository = notifyLogRepository;
@@ -40,6 +47,7 @@ public class PayService {
         this.quotaLogRepository = quotaLogRepository;
         this.inviteService = inviteService;
         this.wechatPayService = wechatPayService;
+        this.alipayPayService = alipayPayService;
     }
 
     public List<Map<String, Object>> listPackages() {
@@ -54,6 +62,12 @@ public class PayService {
 
     @Transactional
     public Map<String, Object> createOrder(Long userId, Long packageId) {
+        return createOrder(userId, packageId, "WECHAT");
+    }
+
+    @Transactional
+    public Map<String, Object> createOrder(Long userId, Long packageId, String payChannel) {
+        String channel = normalizePayChannel(payChannel);
         PayPackage pkg = packageRepository.findById(packageId)
                 .orElseThrow(() -> new BusinessException(404, "套餐不存在"));
         if (pkg.getStatus() != 1) {
@@ -65,16 +79,27 @@ public class PayService {
         order.setPackageId(pkg.getId());
         order.setAmount(pkg.getPrice());
         order.setQuotaGranted(pkg.getQuota());
+        order.setPayType(channel);
         order.setExpiresAt(LocalDateTime.now().plusMinutes(15));
-        String codeUrl = wechatPayService.createNativeOrder(order);
+        String codeUrl = "ALIPAY".equals(channel)
+                ? alipayPayService.createPrecreateOrder(order)
+                : wechatPayService.createNativeOrder(order);
         order.setCodeUrl(codeUrl);
         orderRepository.save(order);
         return Map.of(
                 "orderNo", order.getOrderNo(),
+                "payType", order.getPayType(),
                 "codeUrl", order.getCodeUrl(),
                 "expiresAt", order.getExpiresAt().toString(),
                 "amount", order.getAmount(),
                 "quotaGranted", order.getQuotaGranted());
+    }
+
+    public Map<String, Object> listUserOrders(Long userId, int page, int size) {
+        Page<PayOrder> result = orderRepository.findByUserIdOrderByCreatedAtDesc(
+                userId, PageRequest.of(Math.max(page - 1, 0), Math.min(size, 50)));
+        List<Map<String, Object>> items = result.getContent().stream().map(this::toView).toList();
+        return Map.of("items", items, "total", result.getTotalElements(), "page", page, "size", size);
     }
 
     public Map<String, Object> getOrder(Long userId, String orderNo) {
@@ -88,12 +113,25 @@ public class PayService {
     }
 
     @Transactional
-    public void handleWechatNotify(String notifyId, String orderNo, String wxTransactionId) {
+    public void handleWechatNotify(String notifyId, String orderNo, String transactionId) {
+        handlePayNotify(notifyId, orderNo, transactionId, "WECHAT");
+    }
+
+    @Transactional
+    public void handleAlipayNotify(String notifyId, String orderNo, String transactionId) {
+        handlePayNotify(notifyId, orderNo, transactionId, "ALIPAY");
+    }
+
+    @Transactional
+    public void handlePayNotify(String notifyId, String orderNo, String channelTradeNo, String expectedPayType) {
         if (notifyLogRepository.existsByNotifyId(notifyId)) {
             return;
         }
         PayOrder order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(404, "订单不存在"));
+        if (!expectedPayType.equals(order.getPayType())) {
+            throw new BusinessException(400, "支付渠道与订单不匹配");
+        }
         if ("PAID".equals(order.getStatus())) {
             return;
         }
@@ -105,13 +143,17 @@ public class PayService {
             orderRepository.save(order);
             throw new BusinessException(400, "订单已超时");
         }
-        markPaid(order, wxTransactionId, notifyId);
+        markPaid(order, channelTradeNo, notifyId, expectedPayType);
     }
 
     @Transactional
     public void simulatePayDev(String orderNo) {
+        PayOrder order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
         String notifyId = "dev-" + UUID.randomUUID();
-        handleWechatNotify(notifyId, orderNo, "MOCK_WX_" + System.currentTimeMillis());
+        String tradeNo = ("ALIPAY".equals(order.getPayType()) ? "MOCK_ALI_" : "MOCK_WX_")
+                + System.currentTimeMillis();
+        handlePayNotify(notifyId, orderNo, tradeNo, order.getPayType());
     }
 
     @Transactional
@@ -124,9 +166,12 @@ public class PayService {
         return expired.size();
     }
 
-    private void markPaid(PayOrder order, String wxTransactionId, String notifyId) {
+    private void markPaid(PayOrder order, String channelTradeNo, String notifyId, String payType) {
         order.setStatus("PAID");
-        order.setWxTransactionId(wxTransactionId);
+        order.setChannelTradeNo(channelTradeNo);
+        if ("WECHAT".equals(payType)) {
+            order.setWxTransactionId(channelTradeNo);
+        }
         order.setPaidAt(LocalDateTime.now());
         orderRepository.save(order);
 
@@ -145,13 +190,25 @@ public class PayService {
         inviteService.onFirstPay(order.getUserId());
     }
 
+    private static String normalizePayChannel(String payChannel) {
+        if (payChannel == null || payChannel.isBlank()) {
+            return "WECHAT";
+        }
+        String c = payChannel.trim().toUpperCase();
+        if (!PAY_CHANNELS.contains(c)) {
+            throw new BusinessException(400, "不支持的支付渠道");
+        }
+        return c;
+    }
+
     private static String generateOrderNo() {
         return "PO" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
-    private static Map<String, Object> toView(PayOrder order) {
+    private Map<String, Object> toView(PayOrder order) {
         return Map.of(
                 "orderNo", order.getOrderNo(),
+                "payType", order.getPayType(),
                 "status", order.getStatus(),
                 "amount", order.getAmount(),
                 "quotaGranted", order.getQuotaGranted(),

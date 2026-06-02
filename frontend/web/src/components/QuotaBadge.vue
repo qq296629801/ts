@@ -27,5 +27,10 @@ export default {
 </script>
 
 <style scoped>
-.quota { font-size: 14px; }
+.quota {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 </style>
