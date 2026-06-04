@@ -157,6 +157,62 @@ public class PayService {
     }
 
     @Transactional
+    public Map<String, Object> refundPaidOrder(String orderNo) {
+        PayOrder order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
+        if ("REFUNDED".equals(order.getStatus())) {
+            return refundResultView(order);
+        }
+        if (!"PAID".equals(order.getStatus())) {
+            throw new BusinessException(400, "仅已支付订单可退款");
+        }
+        String refundNotifyId = "refund-" + orderNo;
+        if (notifyLogRepository.existsByNotifyId(refundNotifyId)) {
+            return refundResultView(order);
+        }
+        UserQuota quota = quotaRepository.findByUserId(order.getUserId()).orElseThrow();
+        int toDeduct = order.getQuotaGranted();
+        if (quota.getBalance() < toDeduct) {
+            throw new BusinessException(400, "用户余额不足，无法扣回赠送次数");
+        }
+        String channelRefundId = "ALIPAY".equals(order.getPayType())
+                ? alipayPayService.refund(order)
+                : wechatPayService.refund(order);
+
+        order.setStatus("REFUNDED");
+        order.setRefundedAt(LocalDateTime.now());
+        order.setRefundNotifyId(refundNotifyId);
+        orderRepository.save(order);
+
+        PayNotifyLog notifyLog = new PayNotifyLog();
+        notifyLog.setNotifyId(refundNotifyId);
+        notifyLog.setOrderNo(orderNo);
+        notifyLogRepository.save(notifyLog);
+
+        quota.setBalance(quota.getBalance() - toDeduct);
+        quota.setTotalGranted(Math.max(0, quota.getTotalGranted() - toDeduct));
+        quota.touch();
+        quotaRepository.save(quota);
+        quotaLogRepository.save(
+                QuotaLog.of(order.getUserId(), -toDeduct, "REFUND").withRef("ORDER", orderNo));
+
+        return Map.of(
+                "orderNo", order.getOrderNo(),
+                "status", order.getStatus(),
+                "refundedAt", order.getRefundedAt().toString(),
+                "channelRefundId", channelRefundId,
+                "quotaDeducted", toDeduct);
+    }
+
+    private static Map<String, Object> refundResultView(PayOrder order) {
+        return Map.of(
+                "orderNo", order.getOrderNo(),
+                "status", order.getStatus(),
+                "refundedAt", order.getRefundedAt() != null ? order.getRefundedAt().toString() : "",
+                "quotaDeducted", order.getQuotaGranted());
+    }
+
+    @Transactional
     public int expirePendingOrders() {
         List<PayOrder> expired = orderRepository.findByStatusAndExpiresAtBefore("PENDING", LocalDateTime.now());
         for (PayOrder order : expired) {

@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: AI 图像生成平台 API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     v1 公开 REST 契约。AI 路由由 gateway-service 实现，其余由 platform-api 实现。
-    v1.1（2026-06-02）：合并原 004 增量 — 公开展示图库、双渠道支付、管理账单。
+    v1.2（2026-06-04）：退款 API、公开展示 sort；v1.1 双渠道与账单。
 servers:
   - url: https://api.example.com
     description: 生产
@@ -112,7 +112,7 @@ components:
       type: object
       properties:
         id: { type: string }
-        type: { type: string, enum: [TEMPLATE, FEATURED] }
+        type: { type: string, enum: [TEMPLATE] }
         templateId: { type: integer }
         title: { type: string }
         imageUrl: { type: string, format: uri }
@@ -129,6 +129,7 @@ components:
         status: { type: string }
         channelTradeNo: { type: string }
         paidAt: { type: string, format: date-time }
+        refundedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
     BillingSummary:
       type: object
@@ -352,9 +353,13 @@ paths:
         - name: size
           in: query
           schema: { type: integer, default: 20, minimum: 1, maximum: 48 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [hot, latest], default: hot }
+          description: hot=按使用次数；latest=按创建时间
       responses:
         '200':
-          description: 分页展示项（上架模版封面与可选精选图）
+          description: 分页展示项（仅已上架模版封面，自动排序）
           content:
             application/json:
               schema:
@@ -550,6 +555,24 @@ paths:
                           page: { type: integer }
                           size: { type: integer }
         '403': { description: 非管理员 }
+
+  /api/v1/admin/billing/orders/{orderNo}/refund:
+    post:
+      tags: [Admin, Billing]
+      summary: 管理员 — 对已支付订单发起原路退款
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: orderNo
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 退款成功，订单 REFUNDED，次数已扣回
+        '400':
+          description: 余额不足扣回、非 PAID 状态或渠道退款失败
+        '403': { description: 非管理员 }
+        '404': { description: 订单不存在 }
 
   /api/v1/admin/billing/summary:
     get:

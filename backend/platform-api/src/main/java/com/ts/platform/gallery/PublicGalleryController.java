@@ -21,7 +21,8 @@ public class PublicGalleryController {
     @GetMapping("/public")
     public ApiResponse<Map<String, Object>> listPublic(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(publicGalleryService.listPublic(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "hot") String sort) {
+        return ApiResponse.ok(publicGalleryService.listPublic(page, size, sort));
     }
 }

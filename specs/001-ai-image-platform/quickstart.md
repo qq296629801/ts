@@ -1,6 +1,6 @@
 # Quickstart：AI 图像生成平台（开发环境）
 
-**功能**：`001-ai-image-platform` | **日期**：2026-05-27
+**功能**：`001-ai-image-platform` | **日期**：2026-06-04
 
 ## 前置条件
 
@@ -123,8 +123,8 @@ mvn -pl gateway-service test -Dtest=RelayImageClientRelayIT
 | 管理员 | `19900000000` / `Admin1234` → 管理 → 充值账单、系统汇总 |
 
 ```bash
-# 公开图库（无需登录）
-curl -s 'http://localhost/api/v1/gallery/public?page=1&size=10'
+# 公开图库（无需登录；sort=hot|latest）
+curl -s 'http://localhost/api/v1/gallery/public?page=1&size=10&sort=hot'
 
 # 支付宝下单（需 JWT）
 curl -s -X POST http://localhost/api/v1/pay/create-order \
@@ -142,3 +142,17 @@ curl -s -X POST http://localhost/api/v1/pay/create-order \
 | M4 | 微信/支付宝充值 | P3 US6 |
 | M5 | 管理报表 + 账单 | P3 US7–8 |
 | M6 | 毛玻璃顶栏 + 全站背景 | spec §体验增量 |
+| M7 | 退款 + 公开展示对齐 | ✅ SC-012 |
+
+## M8 走查（退款 + 公开展示）
+
+| 项 | 验收 |
+|----|------|
+| 退款 | 管理端「充值账单」对 PAID 订单点退款；余额不足时 API 400；列表出现 `REFUNDED` |
+| 公开展示 | `/gallery/public?sort=hot\|latest`；响应项 `type` 均为 `TEMPLATE` |
+
+```bash
+# 退款（管理员 JWT）
+curl -X POST "http://localhost/api/v1/admin/billing/orders/{orderNo}/refund" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```

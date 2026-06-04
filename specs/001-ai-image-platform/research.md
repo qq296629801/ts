@@ -81,3 +81,41 @@
 - 支付：微信沙箱回调签名 fixture。
 
 **Rationale**：宪章 IV 要求公开路由具备契约/集成验证；真实中继不稳定，不纳入 CI 必跑项。
+
+---
+
+## 10. 双渠道支付（已交付，2026-06-02）
+
+**Decision**：`PayOrder.pay_type` 为 `WECHAT` | `ALIPAY`；`channel_trade_no` 通用渠道单号；`AlipayPayService` 与 `WechatPayService` 并列 Mock；回调 `wx-notify` / `alipay-notify` 共用幂等 `t_pay_notify_log`。
+
+**Rationale**：澄清会话 2026-06-02；PC 扫码范式一致。
+
+## 11. 公开展示图库（澄清 2026-06-04）
+
+**Decision**：公开展示 **仅** 来源于 `APPROVED` 模版且带 `cover_image_url`；排序 `hot`（use_count DESC）或 `latest`（created_at DESC）；**不** 使用运营配置独立精选 URL。
+
+**Rationale**：用户选择「自动精选」；与模版审核链路一致，降低 UGC 外泄风险。
+
+**Alternatives considered**：
+- 管理员配置 `featured.public_image_ids`：已实现但将移除以对齐 spec。
+
+**实现差距**：`PublicGalleryService` 仍读取 `featured.public_image_ids` → Phase 1 对齐任务。
+
+## 12. 管理员退款（澄清 2026-06-04，待实现）
+
+**Decision**：
+- 仅 `PAID` → `REFUNDED`；先校验 `user.balance >= order.quota_granted`，不足则 **400 拒绝**。
+- 事务内：扣回次数、`QuotaLog` reason=`REFUND`、更新订单、调用渠道退款 API（生产验签，dev Mock）。
+- 管理端：`POST /api/v1/admin/billing/orders/{orderNo}/refund`；账单汇总排除或单列已退款。
+
+**Rationale**：澄清要求完整线上退款；避免负余额。
+
+**Alternatives considered**：
+- 仅标记 REFUNDED 不调渠道：不符合澄清选项 A。
+- 部分退款：v1 不做。
+
+## 13. 注册双通道验收（澄清 2026-06-04）
+
+**Decision**：v1 GA 须 **手机+短信** 与 **邮箱+邮件** 均可注册；验收各至少 1 条 E2E/集成路径。
+
+**Rationale**：FR-001/002 均已实现，澄清明确不可砍邮箱。

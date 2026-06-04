@@ -1,157 +1,140 @@
 # 实施计划：AI 图像生成平台
 
-**分支**：`001-ai-image-platform` | **日期**：2026-05-27 | **规格**：[spec.md](./spec.md)
+**分支**：`001-ai-image-platform` | **日期**：2026-06-04 | **规格**：[spec.md](./spec.md)
 
-**输入**：来自 `specs/001-ai-image-platform/spec.md` 的功能规格（含 2026-05-27 澄清会话）
+**输入**：`specs/001-ai-image-platform/spec.md`（含 Clarifications 2026-05-27～2026-06-04）
 
 ## 概要
 
-建设 B2C Web 平台：Vue 2 前端 + **platform-api**（业务域、JPA、支付、模版、管理）+ **gateway-service**（WebFlux、Spring AI、生图/对话透传、配额协调）。默认图像模型 `gpt-image-2`；次数采用 **先预扣、成功 commit、失败 rollback**；支付仅 **微信 Native 扫码**，订单 **15 分钟**超时；每用户 **单路** 生图并发。
+B2C Web 平台：**Vue 2** 前端 + **platform-api**（业务、JPA、双渠道支付、模版、管理、公开图库）+ **gateway-service**（WebFlux、中继生图/对话、配额协调）。默认生图模型 `gpt-image-2`；次数 **先预扣、成功 commit、失败 rollback**；支付 **微信 Native + 支付宝扫码**；订单 **15 分钟**超时；单路生图。
+
+**v1 客群**：仅 C 端个人账号，无企业子账号/多租户。
+
+**当前增量（2026-06-04 澄清，待开发）**：
+
+1. **管理员退款**：已支付订单原路退 + 扣回全部 `quota_granted`；余额不足则拒绝；`REFUNDED` 状态与账单/审计。
+2. **公开展示图库对齐**：仅自动取已上架模版封面（热门/最新），移除人工 `featured.public_image_ids` 路径。
+
+其余能力（RBAC、公开图库 API、双渠道下单、管理账单、毛玻璃 UI）**已合入代码**，见 [tasks.md](./tasks.md) 增量表。
 
 ## 技术上下文
 
 | 项 | 选型 |
 |----|------|
-| **语言/版本** | Java 21 |
-| **主要依赖** | Spring Boot 3.3.x、Spring WebFlux（网关）、Spring MVC + Spring Data JPA（平台）、Spring AI、Spring Security + JWT、Vue 2 + Element UI + Vuex |
-| **存储** | MySQL 8（业务权威）、Redis 7（验证码、Token、in-flight 锁）、MinIO/OSS（图片） |
-| **测试** | JUnit 5、Spring Boot Test、WebTestClient、WireMock、Testcontainers（MySQL/Redis） |
-| **目标平台** | Linux 容器（Docker）；Web PC + 移动自适应 |
-| **项目类型** | Web 应用（前后端分离 + AI 网关） |
-| **性能目标** | 常规 API P95 &lt; 500ms；生图 P95 &lt; 15s；≥1000 并发活跃用户（见 spec FR-034–036） |
-| **约束** | 宪章：网关非阻塞透传；密钥仅服务端；公开路由需契约/集成测试 |
-| **规模/范围** | v1 约 12 周里程碑；7 个用户故事；不含图生图/JSAPI/H5 |
+| **语言/版本** | Java 17（运行）/ 规范 Java 21；Spring Boot 3.3.x |
+| **主要依赖** | Spring MVC + JPA（platform）、WebFlux（gateway）、Spring AI（对话）、JWT、Vue 2 + Element UI |
+| **存储** | MySQL 8、Redis 7、MinIO（开发）/ OSS（生产） |
+| **测试** | JUnit 5、MockMvc、集成测试 + `contracts/openapi.yaml` |
+| **目标平台** | Docker Compose（`deploy/docker-compose.dev.yml`）；http://localhost |
+| **项目类型** | Web 前后端分离 + AI 网关 |
+| **性能目标** | 常规 API P95 &lt; 500ms；生图 P95 &lt; 15s（见 spec FR-034–036） |
+| **约束** | 宪章：网关无领域逻辑；密钥仅服务端；支付/退款回调 permitAll + 验签 |
+| **规模/范围** | 单规格目录 `001`；下一批任务从 T094 起（见 tasks.md） |
 
 ## 宪章检查
 
-*门禁：Phase 0 研究前 ✅ | Phase 1 设计后 ✅*
+*门禁：Phase 0 ✅ | Phase 1 设计后 ✅*
 
 | 原则 | 状态 | 说明 |
 |------|------|------|
-| I. Spring AI 优先 | ✅ | 对话 ChatModel；生图 `RelayImageClient` 调 OpenAI 兼容中继（见 research §2 例外说明） |
-| II. WebFlux 透传网关 | ✅ | AI 路由仅在 `gateway-service`；JPA/支付/审核在 `platform-api` |
-| III. 规格优先增量交付 | ✅ | spec 含 P1–P3 用户故事与澄清；M1 可独立验收 P1 |
-| IV. 契约与集成验证 | ✅ | `contracts/openapi.yaml` + quickstart 冒烟/契约测试清单 |
-| V. 密钥与客户端边界 | ✅ | OpenAI/微信密钥仅后端；JWT 不含上游 Key |
-| VI. 最小范围与可观测 | ✅ | 双服务为宪章必要拆分；结构化日志 + `X-Request-Id` |
+| I. Spring AI 优先 | ✅ | 对话 `ChatModel`；生图 `RelayImageClient` 中继 |
+| II. WebFlux 透传网关 | ✅ | AI 仅在 gateway；支付/退款/模版在 platform |
+| III. 规格优先增量交付 | ✅ | 澄清已写入 spec；退款为独立可验收增量 |
+| IV. 契约与集成验证 | ✅ | openapi v1.1 + 退款路由待补契约测试 |
+| V. 密钥与客户端边界 | ✅ | 微信/支付宝密钥仅服务端 |
+| VI. 最小范围与可观测 | ✅ | 退款逻辑集中在 `pay` 包；公开图库仅改 `PublicGalleryService` |
 
-**Phase 1 后复核**：`data-model.md` 与内部配额 API 不将领域逻辑塞入网关；网关仅编排鉴权→reserve→AI→存储→commit/rollback。
+**Phase 1 后**：退款不经过 gateway；公开展示不暴露用户私密 `t_image`。
 
 ## 项目结构
 
-### 文档（当前功能）
+### 文档
 
 ```text
 specs/001-ai-image-platform/
-├── plan.md              # 本文件
-├── research.md          # Phase 0
-├── data-model.md        # Phase 1
-├── quickstart.md        # Phase 1
-├── contracts/           # Phase 1
-│   ├── openapi.yaml
-│   └── README.md
+├── plan.md
+├── research.md
+├── data-model.md
+├── design-ui-tokens.md
+├── quickstart.md
+├── contracts/openapi.yaml
 ├── spec.md
-└── tasks.md             # /speckit-tasks 生成
+└── tasks.md
 ```
 
-### 源代码（将创建）
+### 源代码（已存在）
 
 ```text
-backend/
-├── gateway-service/          # WebFlux, Spring AI, 无 JPA
-│   ├── src/main/java/.../api/      # ImageGatewayController, ChatGatewayController
-│   ├── src/main/java/.../client/   # QuotaClient, PlatformApiClient, OssClient
-│   └── src/test/.../contract/
-├── platform-api/             # MVC, JPA, 支付, 模版, 管理
-│   ├── src/main/java/.../domain/
-│   ├── src/main/java/.../api/
-│   ├── src/main/resources/db/migration/
-│   └── src/test/.../contract/
-└── pom.xml                   # 父 POM（可选）
-
-frontend/
-└── web/                      # Vue 2 + Element UI
-    ├── src/views/            # 聊天、广场、充值、管理
-    ├── src/store/
-    └── src/api/
-
-deploy/
-├── docker-compose.dev.yml
-└── nginx/nginx.conf
-
-tests/
-└── e2e/                      # 可选 Playwright 冒烟
+backend/platform-api/     # 业务 API :8080
+backend/gateway-service/    # AI 网关 :8081
+frontend/web/             # Vue :8082 / nginx /
+deploy/docker-compose.dev.yml
+tests/e2e/smoke-p1.sh, smoke-rbac-pay.sh
 ```
-
-**结构决策**：选用 **选项 2（Web 应用）** 并拆 **gateway + platform** 以满足宪章 II；网关不引入 JPA。
 
 ## 复杂度跟踪
 
 | 违规项 | 为什么需要 | 为什么拒绝更简单方案 |
 |--------|------------|----------------------|
-| 双服务部署 | 宪章要求 WebFlux 轻量网关 vs 阻塞式 JPA 业务 | 单体无法同时满足非阻塞 AI 透传与丰富领域逻辑而不混层 |
-| JPA + MySQL（platform-api） | 用户/订单/模版/流水持久化为规格必需 | 宪章「网关默认无存储」；持久化不能放在网关 |
-| 内部配额 API | 网关需预扣/回滚且权威在 DB | 网关直连 DB 破坏边界与事务一致性 |
-| Spring AI 流式 SSE（潜在） | 若 ChatModel 流式 API 不足，在 `client` 层用 WebClient 适配 | 记录在案，限定适配层，不扩散到业务模块 |
+| 双服务 | 宪章 II | 单体混 WebFlux + JPA 易阻塞 |
+| 渠道退款 API | 澄清要求原路退 + 对账 | 仅改状态不退款不符合 FR-028b |
+| `RelayImageClient` 非 Spring AI ImageModel | 中继 b64_json/超时 | 已记录在 research §2 |
 
 ## Phase 0：研究与决策
 
-详见 [research.md](./research.md)。所有技术上下文项已解析，无未决 `NEEDS CLARIFICATION`。
+详见 [research.md](./research.md)（§1–9 基线 + §10–13 2026-06-04 增量）。**无未决 NEEDS CLARIFICATION**。
 
 ## Phase 1：设计与契约
 
-| 产物 | 路径 |
-|------|------|
-| 数据模型 | [data-model.md](./data-model.md) |
-| API 契约 | [contracts/openapi.yaml](./contracts/openapi.yaml) |
-| 本地启动 | [quickstart.md](./quickstart.md) |
+| 产物 | 路径 | 说明 |
+|------|------|------|
+| 数据模型 | [data-model.md](./data-model.md) | 订单退款字段、双渠道、公开图库数据源 |
+| API 契约 | [contracts/openapi.yaml](./contracts/openapi.yaml) | v1.1 + 待实现 `POST .../refund` |
+| 快速验证 | [quickstart.md](./quickstart.md) | 含退款与公开展示走查 |
+| UI token | [design-ui-tokens.md](./design-ui-tokens.md) | 顶栏/背景 |
 
-### 核心流程（生图）
+### 退款（待实现）设计要点
 
-```mermaid
-sequenceDiagram
-  participant Web as 前端
-  participant GW as gateway-service
-  participant PL as platform-api
-  participant AI as OpenAI
-  participant OSS as 对象存储
-
-  Web->>GW: POST /ai/image/generate (JWT)
-  GW->>GW: 验签 JWT
-  GW->>PL: POST /internal/quota/reserve
-  alt 余额不足或 in-flight
-    PL-->>GW: 402/409
-    GW-->>Web: 错误
-  end
-  GW->>AI: Spring AI ImageModel
-  alt 上游或 OSS 失败
-    GW->>PL: POST /internal/quota/rollback
-    GW-->>Web: 错误
-  else 成功
-    GW->>OSS: 存图
-    GW->>PL: 写 t_image + commit
-    GW-->>Web: imageUrl + remainingQuota
-  end
+```text
+Admin POST /api/v1/admin/billing/orders/{orderNo}/refund
+  → 校验 ROLE_ADMIN、订单 PAID、balance >= quota_granted
+  → 事务：扣减 quota + QuotaLog(REFUND) + status=REFUNDED
+  → 调用 WechatPayService/AlipayPayService.refund (dev mock)
+  → 写 PayNotifyLog 或 RefundLog 幂等
 ```
 
-### 实施分阶段（对应 spec 里程碑）
+### 公开展示（待对齐）设计要点
 
-| 阶段 | 周期 | 交付 |
-|------|------|------|
-| M1 | W1–2 | 仓库骨架、Flyway、认证、配额、网关对话/生图、Vue 壳 |
-| M2 | W3–5 | 会话/图库、邀请、次数流水 |
-| M3 | W6–7 | 模版广场、AI+人工审核 |
-| M4 | W8 | Native 支付、订单超时任务 |
-| M5 | W9–10 | 管理端、报表、系统配置 |
-| M6 | W11–12 | 联调、压测、上线 |
+- `GET /api/v1/gallery/public?sort=hot|latest`（默认 `hot`）
+- 仅 `Template.status=APPROVED` 且 `cover_image_url` 非空
+- **删除** `SystemConfig featured.public_image_ids` 注入逻辑
 
-## Phase 2 说明
+## Phase 2：任务分解
 
-**`/speckit-plan` 止于 Phase 1 设计产物**；任务分解由 **`/speckit-tasks`** 生成 `tasks.md`（按用户故事分组，含契约测试任务）。
+由 `/speckit-tasks` 生成或手工在 [tasks.md](./tasks.md) 追加 **T094+**（本 plan 不生成 tasks.md）。
 
-## 测试与质量门禁
+建议任务包：
 
-- 每个公开路由至少 1 条契约或集成测试（成功 + 主要失败码）。
-- 网关必测：401、402、409、上游超时 rollback、日志无 Key 泄漏。
-- 支付必测：验签、幂等回调、15 分钟取消后回调不入账。
-- P1 完成标准：满足 spec **SC-001、SC-002** 与 quickstart 第 6 节。
+| ID 范围 | 内容 |
+|---------|------|
+| T094–T098 | 退款：Flyway 字段、Service、Admin API、集成测试、管理端按钮 |
+| T099–T101 | 公开展示：Service 去精选、sort 参数、契约/冒烟更新 |
+| T102 | openapi + quickstart 与 SC-012 走查 |
+
+## 实现状态快照（2026-06-04）
+
+| 能力 | 状态 |
+|------|------|
+| P1 注册/聊天/生图/配额 | ✅ |
+| 模版广场 + 审核 | ✅ |
+| 微信/支付宝下单 + 账单 | ✅ |
+| RBAC + 游客公开浏览 | ✅ |
+| 毛玻璃 + 全站背景 | ✅ |
+| 管理员退款 | ❌ 待做 |
+| 公开展示纯自动排序 | ⚠️ 需去精选配置 |
+
+## 下一步
+
+1. `/speckit-tasks` 或手工追加 T094+  
+2. `/speckit-implement` 执行退款与公开展示对齐  
+3. 验收：`quickstart.md` + SC-012

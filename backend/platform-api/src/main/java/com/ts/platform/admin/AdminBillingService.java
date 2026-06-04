@@ -2,6 +2,7 @@ package com.ts.platform.admin;
 
 import com.ts.platform.pay.PayOrder;
 import com.ts.platform.pay.PayOrderRepository;
+import com.ts.platform.pay.PayService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -14,9 +15,15 @@ import java.util.*;
 public class AdminBillingService {
 
     private final PayOrderRepository orderRepository;
+    private final PayService payService;
 
-    public AdminBillingService(PayOrderRepository orderRepository) {
+    public AdminBillingService(PayOrderRepository orderRepository, PayService payService) {
         this.orderRepository = orderRepository;
+        this.payService = payService;
+    }
+
+    public Map<String, Object> refundOrder(String orderNo) {
+        return payService.refundPaidOrder(orderNo);
     }
 
     public Map<String, Object> listOrders(
@@ -75,6 +82,7 @@ public class AdminBillingService {
         m.put("status", o.getStatus());
         m.put("channelTradeNo", o.getChannelTradeNo() != null ? o.getChannelTradeNo() : "");
         m.put("paidAt", o.getPaidAt() != null ? o.getPaidAt().toString() : "");
+        m.put("refundedAt", o.getRefundedAt() != null ? o.getRefundedAt().toString() : "");
         m.put("createdAt", o.getCreatedAt() != null ? o.getCreatedAt().toString() : "");
         return m;
     }

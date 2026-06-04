@@ -1,8 +1,9 @@
 # API 契约
 
-**OpenAPI**：[`openapi.yaml`](./openapi.yaml)（OpenAPI 3.1，v1.1.0）
+**OpenAPI**：[`openapi.yaml`](./openapi.yaml)（OpenAPI 3.1，v1.2.0）
 
-**v1.1.0**（2026-06-02）：合并公开展示图库、双渠道支付、管理账单路径。
+**v1.2.0**（2026-06-04）：退款 API、公开展示 `sort` 参数。  
+**v1.1.0**：双渠道支付、管理账单、公开图库。
 
 ## 服务边界
 

@@ -36,4 +36,10 @@ public class QuotaLog {
         log.reason = reason;
         return log;
     }
+
+    public QuotaLog withRef(String refType, String refId) {
+        this.refType = refType;
+        this.refId = refId;
+        return this;
+    }
 }

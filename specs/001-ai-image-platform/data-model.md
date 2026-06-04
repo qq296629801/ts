@@ -1,6 +1,6 @@
 # 数据模型：AI 图像生成平台
 
-**功能**：`001-ai-image-platform` | **日期**：2026-05-27  
+**功能**：`001-ai-image-platform` | **日期**：2026-06-04（更新退款与双渠道）  
 **存储**：MySQL 8（权威）、Redis 7（验证码、Token、in-flight 锁、热点缓存）
 
 ## 实体关系概览
@@ -59,7 +59,7 @@ PayOrder *──1 PayPackage
 | id | BIGINT | PK | |
 | user_id | BIGINT | FK | |
 | change_amount | INT | NOT NULL | 正增负减 |
-| reason | ENUM | NOT NULL | REGISTER_GIFT, INVITE_REGISTER, INVITE_PAY, IMAGE_GEN, RECHARGE, ADMIN_ADJUST, ROLLBACK |
+| reason | ENUM | NOT NULL | REGISTER_GIFT, INVITE_REGISTER, INVITE_PAY, IMAGE_GEN, RECHARGE, REFUND, ADMIN_ADJUST, ROLLBACK |
 | ref_type | VARCHAR(32) | NULL | ORDER / SESSION / ADMIN |
 | ref_id | VARCHAR(64) | NULL | |
 | created_at | DATETIME | | |
@@ -160,12 +160,15 @@ PayOrder *──1 PayPackage
 | package_id | BIGINT | FK |
 | amount | DECIMAL(10,2) | |
 | quota_granted | INT | |
-| pay_type | ENUM | WECHAT |
+| pay_type | ENUM | WECHAT, ALIPAY |
 | status | ENUM | PENDING, PAID, CANCELLED, REFUNDED |
-| wx_transaction_id | VARCHAR(64) | NULL |
-| code_url | VARCHAR(512) | Native 二维码链接 |
+| wx_transaction_id | VARCHAR(64) | NULL | 微信渠道可复用 |
+| channel_trade_no | VARCHAR(64) | NULL | 渠道交易号（通用） |
+| code_url | VARCHAR(512) | 扫码链接 |
 | expires_at | DATETIME | created_at + 15min |
 | paid_at | DATETIME | NULL |
+| refunded_at | DATETIME | NULL | 计划字段（V9 迁移） |
+| refund_notify_id | VARCHAR(128) | NULL | 退款幂等（计划） |
 | created_at | DATETIME | |
 
 ### t_pay_notify_log
@@ -186,9 +189,11 @@ PayOrder *──1 PayPackage
 
 ```text
 PENDING ──(支付成功+验签)──► PAID
-PENDING ──(15min超时/手动)──► CANCELLED
-PAID ──(退款流程)──► REFUNDED
+PENDING ──(15min超时/扫描)──► CANCELLED
+PAID ──(管理员退款：余额足够+渠道成功)──► REFUNDED
 ```
+
+**退款规则**：仅 PAID；`balance >= quota_granted` 方可发起；扣回全部发放次数后调渠道退款；失败则保持 PAID（可重试）。
 
 ### 模版
 

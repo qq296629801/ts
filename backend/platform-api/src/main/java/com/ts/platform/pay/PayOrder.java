@@ -51,6 +51,12 @@ public class PayOrder {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
+    @Column(name = "refund_notify_id", length = 128)
+    private String refundNotifyId;
+
     public Long getId() { return id; }
     public String getOrderNo() { return orderNo; }
     public void setOrderNo(String orderNo) { this.orderNo = orderNo; }
@@ -77,4 +83,8 @@ public class PayOrder {
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getRefundedAt() { return refundedAt; }
+    public void setRefundedAt(LocalDateTime refundedAt) { this.refundedAt = refundedAt; }
+    public String getRefundNotifyId() { return refundNotifyId; }
+    public void setRefundNotifyId(String refundNotifyId) { this.refundNotifyId = refundNotifyId; }
 }

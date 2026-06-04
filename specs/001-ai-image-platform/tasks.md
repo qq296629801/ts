@@ -2,7 +2,7 @@
 
 **输入**：`/specs/001-ai-image-platform/`（plan.md、spec.md、research.md、data-model.md、contracts/、quickstart.md）
 
-**前置条件**：plan.md ✅ | spec.md ✅ | 澄清会话 2026-05-27 ✅
+**前置条件**：plan.md ✅ | spec.md ✅ | 澄清会话 2026-05-27 ✅、2026-06-04 ✅
 
 **测试**：公开 AI 路由、配额边界、支付回调变更时 **必须** 包含契约/集成测试（宪章 IV）。
 
@@ -326,6 +326,73 @@ T013 JwtTokenProvider | T014 JwtWebFilter | T018 QuotaClient | T019 SpringAiConf
 | M5 运营 | US7 全量 | 报表与配置 |
 | M6 体验 | — | 毛玻璃顶栏 + 全站背景（已交付） |
 | M7 权限与支付 | — | 公开图库、支付宝、管理账单（已交付） |
+| M8 澄清增量 | T094–T108 | 管理员原路退款、公开展示纯自动排序 |
+
+---
+
+## Phase 11：US6/US7 增量 — 管理员线上退款（P2）
+
+**目标**：满足 FR-028b/c、SC-012；已支付订单可原路退款、扣回 `quota_granted`；余额不足时拒绝退款。
+
+**独立验收**：管理员 `19900000000` 对 PAID 订单退款成功 → 用户余额减少、订单 `REFUNDED`、账单汇总不含该笔；余额小于赠送次数时 API 4xx 且订单仍为 PAID。
+
+- [x] T094 [P] 新增 Flyway `backend/platform-api/src/main/resources/db/migration/V9__pay_refund.sql`：`t_pay_order.refunded_at`、`refund_notify_id`（与 data-model.md 一致）
+- [x] T095 [P] [US6] 扩展 `backend/platform-api/src/main/java/com/ts/platform/pay/PayOrder.java` 与 JPA 映射 REFUNDED 状态字段
+- [x] T096 [P] [US6] 在 `backend/platform-api/src/main/java/com/ts/platform/pay/WechatPayService.java` 与 `AlipayPayService.java` 增加 `refund(orderNo, amount)`（dev profile 返回 mock 成功）
+- [x] T097 [US7] 在 `backend/platform-api/src/main/java/com/ts/platform/admin/AdminBillingService.java` 实现 `refundOrder`：校验 ADMIN、PAID、`balance >= quota_granted`、事务内扣配额 + `QuotaLog` reason=`REFUND` + 调渠道退款 + 幂等写 `PayNotifyLog`
+- [x] T098 [US7] 在 `backend/platform-api/src/main/java/com/ts/platform/admin/AdminBillingController.java` 暴露 `POST /api/v1/admin/billing/orders/{orderNo}/refund`（对齐 `contracts/openapi.yaml`）
+- [x] T099 [US7] 新增 `backend/platform-api/src/test/java/com/ts/platform/integration/RefundIntegrationTest.java`：成功退款、余额不足拒绝、非 ADMIN 403
+- [x] T100 [US7] 在 `frontend/web/src/views/admin/BillingOrders.vue` 增加退款确认与 REFUNDED 状态展示
+- [x] T101 [US7] 更新 `AdminBillingService` 汇总逻辑：已退款订单不计入收入/笔数（`backend/platform-api/src/main/java/com/ts/platform/admin/AdminBillingService.java`）
+
+---
+
+## Phase 12：US5/US8 增量 — 公开展示纯自动排序（P2）
+
+**目标**：满足澄清 D / FR-044a；`GET /api/v1/gallery/public` 仅已上架模版封面，支持 `sort=hot|latest`，**移除** `featured.public_image_ids`。
+
+**独立验收**：游客 `GET /gallery/public?sort=latest` 200，响应无 `FEATURED` 类型项；切换 `sort` 顺序与 `useCount`/`createdAt` 一致。
+
+- [x] T102 [US5] 重写 `backend/platform-api/src/main/java/com/ts/platform/gallery/PublicGalleryService.java`：删除 `SystemConfigRepository` 精选逻辑，仅 `Template.status=APPROVED` 且封面非空
+- [x] T103 [US5] 在 `backend/platform-api/src/main/java/com/ts/platform/gallery/PublicGalleryController.java` 增加查询参数 `sort`（默认 `hot`：`useCount` DESC；`latest`：`createdAt` DESC）
+- [x] T104 [US5] 更新 `backend/platform-api/src/test/java/com/ts/platform/integration/PublicGalleryIntegrationTest.java`：覆盖 `sort`、断言无人工精选 URL
+- [x] T105 [P] [US5] 更新 `frontend/web/src/views/gallery/PublicGallery.vue`：传递 `sort` 查询参数并展示切换控件
+
+---
+
+## Phase 13：打磨 — 契约与走查（澄清增量）
+
+**目标**：OpenAPI、quickstart、冒烟与 SC-012 一致。
+
+- [x] T106 [P] 核对并必要时修订 `specs/001-ai-image-platform/contracts/openapi.yaml`（`sort` 参数、`refund` 响应与实现一致）
+- [x] T107 [P] 更新 `specs/001-ai-image-platform/quickstart.md`：M8 退款走查 + 公开展示 `sort` 验收步骤
+- [x] T108 扩展 `tests/e2e/smoke-rbac-pay.sh`：公开展示 `sort` 与管理员退款路径（dev mock 可跳过真实渠道）
+
+---
+
+### 澄清增量依赖（T094+）
+
+```text
+T094、T095 ─┬─► T097 ─► T098 ─► T099
+T096 ───────┘              └─► T100、T101
+
+T102 ─► T103 ─► T104
+T105 可与 T103 并行（前端）
+
+T106–T108 依赖 Phase 11–12 实现完成
+```
+
+### 澄清增量并行示例
+
+```bash
+# 退款后端与渠道 mock 可并行起步
+开发者 A: T094 + T095 + T097
+开发者 B: T096
+
+# 公开展示后端与前端
+开发者 A: T102 + T103
+开发者 B: T105（待 T103 契约稳定）
+```
 
 ---
 
@@ -343,9 +410,14 @@ T013 JwtTokenProvider | T014 JwtWebFilter | T018 QuotaClient | T019 SpringAiConf
 | US6 | T070–T077 | 8 |
 | US7 | T078–T086 | 9 |
 | Phase 10 打磨 | T087–T093 | 7 |
-| **合计** | **T001–T093** | **93** |
+| Phase 11 退款 | T094–T101 | 8 |
+| Phase 12 公开展示 | T102–T105 | 4 |
+| Phase 13 澄清打磨 | T106–T108 | 3 |
+| **合计** | **T001–T108** | **108** |
 
 **MVP 任务**：T001–T056（Phase 1–5，共 56 项）
+
+**下一增量（M8）**：T094–T108（共 15 项，建议顺序执行 Phase 11 → 12 → 13）
 
 ---
 
@@ -354,5 +426,6 @@ T013 JwtTokenProvider | T014 JwtWebFilter | T018 QuotaClient | T019 SpringAiConf
 - 所有任务描述已含仓库内路径，实施时包名前缀 `com.ts` 可依团队规范调整，但须同步更新任务路径
 - 支付/短信/审核 SDK 密钥仅环境变量注入
 - 邀请首充奖励（+10）在 US6 T076 挂钩，US4 仅实现注册奖励
-- OpenAPI v1.1.0 含公开图库、双支付、管理账单路径
-- 冒烟：`tests/e2e/smoke-p1.sh`、`tests/e2e/smoke-rbac-pay.sh`
+- OpenAPI v1.2.0 含退款与 `sort`；T106 与实现对齐
+- 冒烟：`tests/e2e/smoke-p1.sh`、`tests/e2e/smoke-rbac-pay.sh`（T108 扩展退款与 sort）
+- T094+ 对应 plan.md「待实现」：管理员退款、公开展示去精选

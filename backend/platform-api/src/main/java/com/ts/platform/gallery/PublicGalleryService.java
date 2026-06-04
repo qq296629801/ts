@@ -1,6 +1,5 @@
 package com.ts.platform.gallery;
 
-import com.ts.platform.admin.SystemConfigRepository;
 import com.ts.platform.template.Template;
 import com.ts.platform.template.TemplateRepository;
 import org.springframework.data.domain.Page;
@@ -9,29 +8,27 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
- * 公开展示图库：已上架模版封面 + 可选精选配置。
+ * 公开展示图库：仅已上架模版封面，按热度或最新排序。
  */
 @Service
 public class PublicGalleryService {
 
-    private static final String FEATURED_KEY = "featured.public_image_ids";
-
     private final TemplateRepository templateRepository;
-    private final SystemConfigRepository configRepository;
 
-    public PublicGalleryService(TemplateRepository templateRepository, SystemConfigRepository configRepository) {
+    public PublicGalleryService(TemplateRepository templateRepository) {
         this.templateRepository = templateRepository;
-        this.configRepository = configRepository;
     }
 
-    public Map<String, Object> listPublic(int page, int size) {
+    public Map<String, Object> listPublic(int page, int size, String sort) {
         int p = Math.max(page, 1);
         int s = Math.min(Math.max(size, 1), 48);
+        Sort ordering = "latest".equalsIgnoreCase(sort)
+                ? Sort.by(Sort.Direction.DESC, "createdAt")
+                : Sort.by(Sort.Direction.DESC, "useCount");
         Page<Template> result = templateRepository.searchApproved(
-                null, null, PageRequest.of(p - 1, s, Sort.by(Sort.Direction.DESC, "useCount")));
+                null, null, PageRequest.of(p - 1, s, ordering));
 
         List<Map<String, Object>> items = new ArrayList<>();
         for (Template t : result.getContent()) {
@@ -46,37 +43,11 @@ public class PublicGalleryService {
                     "imageUrl", t.getCoverImageUrl(),
                     "useCount", t.getUseCount()));
         }
-        appendFeatured(items);
         return Map.of(
                 "items", items,
                 "total", result.getTotalElements(),
                 "page", p,
-                "size", s);
-    }
-
-    private void appendFeatured(List<Map<String, Object>> items) {
-        configRepository.findById(FEATURED_KEY).ifPresent(cfg -> {
-            String raw = cfg.getConfigValue();
-            if (raw == null || raw.isBlank()) {
-                return;
-            }
-            Set<String> existing = items.stream()
-                    .map(m -> String.valueOf(m.get("id")))
-                    .collect(Collectors.toSet());
-            for (String part : raw.split(",")) {
-                String url = part.trim();
-                if (url.isEmpty() || existing.contains("feat-" + url.hashCode())) {
-                    continue;
-                }
-                String id = "feat-" + Math.abs(url.hashCode());
-                if (existing.add(id)) {
-                    items.add(0, Map.of(
-                            "id", id,
-                            "type", "FEATURED",
-                            "title", "精选",
-                            "imageUrl", url));
-                }
-            }
-        });
+                "size", s,
+                "sort", "latest".equalsIgnoreCase(sort) ? "latest" : "hot");
     }
 }

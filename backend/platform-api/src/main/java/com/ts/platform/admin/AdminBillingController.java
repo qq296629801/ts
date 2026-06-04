@@ -3,6 +3,8 @@ package com.ts.platform.admin;
 import com.ts.platform.common.ApiResponse;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +32,11 @@ public class AdminBillingController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.ok(billingService.listOrders(userId, status, payType, from, to, page, size));
+    }
+
+    @PostMapping("/orders/{orderNo}/refund")
+    public ApiResponse<Map<String, Object>> refund(@PathVariable String orderNo) {
+        return ApiResponse.ok(billingService.refundOrder(orderNo));
     }
 
     @GetMapping("/summary")

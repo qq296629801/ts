@@ -14,6 +14,17 @@ class PublicGalleryIntegrationTest extends IntegrationTestBase {
         mockMvc.perform(get("/api/v1/gallery/public"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.items").isArray());
+                .andExpect(jsonPath("$.data.items").isArray())
+                .andExpect(jsonPath("$.data.sort").value("hot"));
+    }
+
+    @Test
+    void publicGallery_sortLatest_noFeaturedType() throws Exception {
+        mockMvc.perform(get("/api/v1/gallery/public").param("sort", "latest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sort").value("latest"));
+        // 响应项仅 TEMPLATE，无人工精选 FEATURED
+        mockMvc.perform(get("/api/v1/gallery/public"))
+                .andExpect(jsonPath("$.data.items[?(@.type == 'FEATURED')]").isEmpty());
     }
 }

@@ -6,6 +6,7 @@
       <el-select v-model="status" placeholder="状态" clearable>
         <el-option label="待支付" value="PENDING" />
         <el-option label="已支付" value="PAID" />
+        <el-option label="已退款" value="REFUNDED" />
         <el-option label="已取消" value="CANCELLED" />
       </el-select>
       <el-select v-model="payType" placeholder="渠道" clearable>
@@ -22,6 +23,17 @@
       <el-table-column prop="quotaGranted" label="次数" width="70" />
       <el-table-column prop="status" label="状态" width="90" />
       <el-table-column prop="paidAt" label="支付时间" min-width="160" />
+      <el-table-column prop="refundedAt" label="退款时间" min-width="160" />
+      <el-table-column label="操作" width="100" fixed="right">
+        <template slot-scope="{ row }">
+          <el-button
+            v-if="row.status === 'PAID'"
+            type="text"
+            size="small"
+            @click="refund(row)"
+          >退款</el-button>
+        </template>
+      </el-table-column>
     </el-table>
     <el-pagination
       v-if="total > size"
@@ -66,6 +78,17 @@ export default {
       })
       this.items = data.items
       this.total = data.total
+    },
+    refund(row) {
+      this.$confirm(
+        `确认对订单 ${row.orderNo} 原路退款并扣回 ${row.quotaGranted} 次？余额不足将拒绝。`,
+        '退款确认',
+        { type: 'warning' }
+      ).then(async () => {
+        await http.post(`/api/v1/admin/billing/orders/${row.orderNo}/refund`)
+        this.$message.success('退款成功')
+        this.load()
+      }).catch(() => {})
     }
   }
 }
