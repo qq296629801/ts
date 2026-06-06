@@ -99,9 +99,9 @@
 **Alternatives considered**：
 - 管理员配置 `featured.public_image_ids`：已实现但将移除以对齐 spec。
 
-**实现差距**：`PublicGalleryService` 仍读取 `featured.public_image_ids` → Phase 1 对齐任务。
+**实现状态**（2026-06-04）：✅ 已交付 — `PublicGalleryService` 仅模版封面；`sort=hot|latest`；已移除精选配置。
 
-## 12. 管理员退款（澄清 2026-06-04，待实现）
+## 12. 管理员退款（澄清 2026-06-04）
 
 **Decision**：
 - 仅 `PAID` → `REFUNDED`；先校验 `user.balance >= order.quota_granted`，不足则 **400 拒绝**。
@@ -114,8 +114,14 @@
 - 仅标记 REFUNDED 不调渠道：不符合澄清选项 A。
 - 部分退款：v1 不做。
 
+**实现状态**（2026-06-04）：✅ 已交付 — `PayService.refundPaidOrder`、`V9__pay_refund.sql`、`RefundIntegrationTest`、管理端退款按钮。
+
+**审计落库**：v1 使用 `QuotaLog(REFUND)` + `PayNotifyLog` 幂等；独立 `AuditLog` 行项为可选增强（见 plan Phase 2）。
+
 ## 13. 注册双通道验收（澄清 2026-06-04）
 
 **Decision**：v1 GA 须 **手机+短信** 与 **邮箱+邮件** 均可注册；验收各至少 1 条 E2E/集成路径。
 
 **Rationale**：FR-001/002 均已实现，澄清明确不可砍邮箱。
+
+**实现差距**：邮箱注册代码已实现；**集成/E2E 测试待补**（建议 T109+）。

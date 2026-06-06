@@ -167,8 +167,8 @@ PayOrder *──1 PayPackage
 | code_url | VARCHAR(512) | 扫码链接 |
 | expires_at | DATETIME | created_at + 15min |
 | paid_at | DATETIME | NULL |
-| refunded_at | DATETIME | NULL | 计划字段（V9 迁移） |
-| refund_notify_id | VARCHAR(128) | NULL | 退款幂等（计划） |
+| refunded_at | DATETIME | NULL | V9 迁移，退款完成时间 |
+| refund_notify_id | VARCHAR(128) | NULL | 退款幂等键（如 `refund-{orderNo}`，写入 `t_pay_notify_log`） |
 | created_at | DATETIME | |
 
 ### t_pay_notify_log

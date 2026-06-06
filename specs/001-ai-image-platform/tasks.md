@@ -16,7 +16,7 @@
 | 顶栏毛玻璃 + 全站背景 | `App.vue`、`app-bg.webp` | §体验增量 / design-ui-tokens |
 | RBAC·公开图库·双支付·账单 | `PublicGallery*`、`AlipayPayService`、`AdminBilling*`、路由与冒烟 | 用户故事 5–8、FR-040–044 |
 
-**后续新需求**：改 spec.md，在本文件从 **T094** 起追加任务。
+**后续新需求**：改 spec.md，在本文件从 **T121** 起追加任务。
 
 ## 格式：`[ID] [P?] [Story] 描述`
 
@@ -245,10 +245,10 @@
 - [x] T089 [P] [US3] `RelayImageClientTest`（MockWebServer）与可选 `RelayImageClientRelayIT`（`RELAY_IT=1`）
 - [x] T090 [P] Nginx 拆分 `/api/v1/ai/chat|image` → gateway，其余 `/api/` → platform-api；生图 `proxy_read_timeout` 360s
 - [x] T091 [P] 前端生图 axios 超时 360s；`tests/e2e/smoke-relay-image.sh` 中继+网关冒烟
-- [x] T088 端到端冒烟脚本 `tests/e2e/smoke-p1.sh`（覆盖 quickstart §6）
-- [x] T089 [P] 安全审查：确认响应/日志无 `OPENAI_API_KEY`、完整 JWT、用户 prompt 批量明文
-- [x] T090 [P] 网关阻塞审查：WebFlux 路径无 `block()`、无界 buffer（代码扫描或 ArchUnit）
-- [x] T091 性能基线文档 `specs/001-ai-image-platform/checklists/perf-baseline.md`（P95 目标对照 FR-034–036）
+- [x] T109 端到端冒烟脚本 `tests/e2e/smoke-p1.sh`（覆盖 quickstart §6）
+- [x] T110 [P] 安全审查：确认响应/日志无 `OPENAI_API_KEY`、完整 JWT、用户 prompt 批量明文
+- [x] T111 [P] 网关阻塞审查：WebFlux 路径无 `block()`、无界 buffer（代码扫描或 ArchUnit）
+- [x] T112 性能基线文档 `specs/001-ai-image-platform/checklists/perf-baseline.md`（P95 目标对照 FR-034–036）
 - [x] T092 [P] 前端移动端适配检查主要页面（注册、聊天、广场、充值）
 - [x] T093 更新 `AGENTS.md` SPECKIT 段落实装路径（若与 plan 有偏差则同步）
 
@@ -327,6 +327,7 @@ T013 JwtTokenProvider | T014 JwtWebFilter | T018 QuotaClient | T019 SpringAiConf
 | M6 体验 | — | 毛玻璃顶栏 + 全站背景（已交付） |
 | M7 权限与支付 | — | 公开图库、支付宝、管理账单（已交付） |
 | M8 澄清增量 | T094–T108 | 管理员原路退款、公开展示纯自动排序 |
+| M9 生产加固 | T113–T120 | 双通道测试、验签、限流、压测、运维备份 |
 
 ---
 
@@ -382,6 +383,34 @@ T105 可与 T103 并行（前端）
 T106–T108 依赖 Phase 11–12 实现完成
 ```
 
+---
+
+## Phase 14：生产加固与上线验收（P2）
+
+**目标**：闭合 `security-review.md`、`SC-001` 邮箱通道、`FR-037` 生产验签、`FR-034–036` 压测实测、`FR-039` 备份策略（plan Phase 2）。
+
+**独立验收**：邮箱注册集成测试通过；`app.*.mock-enabled=false` 时支付回调验签生效；perf-baseline 表填实测 P95；security-review 四项可勾选或明确 v2 defer。
+
+- [ ] T113 [US1] 在 `backend/platform-api/src/test/java/com/ts/platform/integration/AuthIntegrationTest.java` 增加邮箱注册+登录路径（SC-001 双通道）
+- [ ] T114 [P] [US6] 在 `backend/platform-api/src/main/java/com/ts/platform/pay/WechatPayService.java` 实现生产微信支付 v3 回调/退款验签（`app.wechat.mock-enabled=false`）
+- [ ] T115 [P] [US6] 在 `backend/platform-api/src/main/java/com/ts/platform/pay/AlipayPayService.java` 实现生产支付宝验签（`app.alipay.mock-enabled=false`）
+- [ ] T116 [P] 为登录、发短信、生图入口增加限流（如 `backend/platform-api/.../config/RateLimitConfig.java` + Redis/桶算法，对齐 `security-review.md`）
+- [ ] T117 [US5] 将 `backend/platform-api/src/main/java/com/ts/platform/template/TemplateAuditService.java` 中 dev 敏感词列表切换为阿里云内容安全（可配置开关）
+- [ ] T118 [US7] 管理操作与支付/退款审计：扩展 `t_audit_log` 或结构化日志留存策略，更新 `specs/001-ai-image-platform/checklists/security-review.md` 审计项
+- [ ] T119 执行 `specs/001-ai-image-platform/checklists/perf-baseline.md` 压测场景并回填实测 P95/并发列
+- [ ] T120 [P] 在 `deploy/` 补充每日备份与恢复说明（MySQL/MinIO），满足 FR-039 运维验收
+
+### Phase 14 依赖
+
+```text
+T113 可独立
+T114、T115 可并行（不同渠道）
+T116 依赖 Redis（Phase 2 已有）
+T117–T118 可并行
+T119 依赖稳定环境（docker-compose 或预发）
+T120 文档可与 T119 并行
+```
+
 ### 澄清增量并行示例
 
 ```bash
@@ -409,15 +438,16 @@ T106–T108 依赖 Phase 11–12 实现完成
 | US5 | T063–T069 | 7 |
 | US6 | T070–T077 | 8 |
 | US7 | T078–T086 | 9 |
-| Phase 10 打磨 | T087–T093 | 7 |
+| Phase 10 打磨 | T087–T093、T109–T112 | 11 |
 | Phase 11 退款 | T094–T101 | 8 |
 | Phase 12 公开展示 | T102–T105 | 4 |
 | Phase 13 澄清打磨 | T106–T108 | 3 |
-| **合计** | **T001–T108** | **108** |
+| Phase 14 生产加固 | T113–T120 | 8 |
+| **合计** | **T001–T120**（无重复 ID） | **116** |
 
 **MVP 任务**：T001–T056（Phase 1–5，共 56 项）
 
-**下一增量（M8）**：T094–T108（共 15 项，建议顺序执行 Phase 11 → 12 → 13）
+**下一增量（M9）**：T113–T120（共 8 项；T109–T112 为 Phase 10 债务重编号，已完成）
 
 ---
 
@@ -428,4 +458,5 @@ T106–T108 依赖 Phase 11–12 实现完成
 - 邀请首充奖励（+10）在 US6 T076 挂钩，US4 仅实现注册奖励
 - OpenAPI v1.2.0 含退款与 `sort`；T106 与实现对齐
 - 冒烟：`tests/e2e/smoke-p1.sh`、`tests/e2e/smoke-rbac-pay.sh`（T108 扩展退款与 sort）
-- T094+ 对应 plan.md「待实现」：管理员退款、公开展示去精选
+- M8（T094–T108）已交付；M9（T113–T120）对应 plan.md Phase 2 生产加固
+- T109–T112 由原 Phase 10 重复 ID（T088–T091 第二组）重编号，内容已完成
